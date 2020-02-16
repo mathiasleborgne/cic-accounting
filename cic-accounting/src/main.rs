@@ -7,6 +7,7 @@ use std::env;
 use csv::Writer;
 use crate::chrono::Datelike; // todo: why?
 use std::num::ParseIntError;
+use regex::Regex;
 
 const all_expense_categories: [&str; 18] = [  // todo: put as global/const
     "Salaire",
@@ -149,8 +150,8 @@ fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
 }
 
 fn get_label_without_number(label: &String) -> String {
-    // todo: replace nums
-    return label.to_string()
+    let re = Regex::new(r"[0-9]").unwrap();
+    return re.replace_all(label, "").to_string();
 }
 
 fn get_known_labels_categories_map() -> HashMap<String, String> {
