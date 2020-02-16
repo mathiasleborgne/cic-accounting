@@ -38,16 +38,19 @@ struct AccountingEntry {
     category: String,
 }
 
-fn get_category_from_label(label: &String) -> String {
+fn get_category_from_label(label: &String, known_labels_categories_map: &HashMap<String, String>) -> String {
     if label.contains("VIR PEL") {
         return "Transfer".to_string()
     } else if label.contains("APRR AUTOROUTE CARTE") {
         return "Voiture".to_string()
     }
-    return "Unknown".to_string()
+    match known_labels_categories_map.get(&get_label_without_number(label)) {
+        Some(category) => return category.clone(),
+        _ => return "Unknown".to_string(),
+    }
 }
 
-fn build_accounting_entry_from_raw_csv_record(record: &HashMap<String, String>) -> AccountingEntry {
+fn build_accounting_entry_from_raw_csv_record(record: &HashMap<String, String>, known_labels_categories_map: &HashMap<String, String>) -> AccountingEntry {
     // todo: there might be a way to avoid cloning in here...
     AccountingEntry { 
         date_transaction: match chrono::NaiveDate::parse_from_str(&record["Date"].to_string(), "%m/%d/%Y") {
@@ -60,7 +63,7 @@ fn build_accounting_entry_from_raw_csv_record(record: &HashMap<String, String>) 
             Ok(amount_float) => amount_float,
         }, 
         label: record["Libelle"].clone(),
-        category: get_category_from_label(&record["Libelle"]),
+        category: get_category_from_label(&record["Libelle"], &known_labels_categories_map),
     }
 }
 
@@ -145,6 +148,19 @@ fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
     println!("");
 }
 
+fn get_label_without_number(label: &String) -> String {
+    // todo: replace nums
+    return label.to_string()
+}
+
+fn get_known_labels_categories_map() -> HashMap<String, String> {
+    // todo: parse files
+    let mut known_labels_categories_map = HashMap::new();
+    // known_labels_categories_map.insert(get_label_without_number(&"PAIEMENT CB  CHAVILLE MONOPRIX CARTE ".to_string()), "Courses".to_string());
+    known_labels_categories_map.insert(get_label_without_number(&"PAIEMENT CB 1112 CHAVILLE MONOPRIX CARTE 07458715".to_string()), "Courses".to_string());
+    return known_labels_categories_map
+}
+
 fn collect_args() -> Result<(u32, i32, String, String), ParseIntError> {
     // month/year/action/file_name
     // todo: check length of args?
@@ -162,9 +178,13 @@ fn main() -> Result<(), csv::Error> {
         Err(why) => panic!("Error when collecting arguments, try somethin like \"cargo run 12 2019 guess dummy.csv\": {:?}", why),
         Ok(tuple_result) => tuple_result,
     };
-    let accountings = read_csv(&file_name, current_month, year, &build_accounting_entry_from_raw_csv_record)?;
     match action.as_ref() {
         "guess" => {
+            let known_labels_categories_map = get_known_labels_categories_map();
+            let build_accounting_entry_from_raw_csv_record_with_cats = 
+                |record: &HashMap<String, String>| 
+                build_accounting_entry_from_raw_csv_record(record, &known_labels_categories_map);
+            let accountings = read_csv(&file_name, current_month, year, &build_accounting_entry_from_raw_csv_record_with_cats)?;
             print_accountings(&accountings, current_month);
             let file_name_guessed = "guessed_".to_owned() + &file_name;
             write_csv_guessed_categories(&accountings, &file_name_guessed); 
@@ -178,8 +198,10 @@ fn main() -> Result<(), csv::Error> {
     }
         // todo: replace 1st line
         // todo: guess from older CSVs
-        // todo: remove month check from sums
-        // todo: action  1st in arguments, and remove unused args for sum
+        //   make month/year optional in readcsv
+        //   read all files
+        // todo: remove month check from sums funcitons
+        // todo: remove unused args for sum action
     Ok(())
 }
 
