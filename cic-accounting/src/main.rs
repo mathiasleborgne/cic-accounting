@@ -99,7 +99,8 @@ fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>) -> Result<()
     Ok(())
 }
     
-fn read_csv(csv_path: &String, entry_builder_function: &dyn Fn(&HashMap<String, String>)-> AccountingEntry) -> Result<Vec<AccountingEntry>, csv::Error> {
+fn read_csv(csv_path: &String, month: u32, year: i32, entry_builder_function: &dyn Fn(&HashMap<String, String>)-> AccountingEntry) 
+    -> Result<Vec<AccountingEntry>, csv::Error> {
     // pass an entry_builder_function to read csv with or without categories
     // https://www.reddit.com/r/rust/comments/bwplfl/read_csv_columns/
     let mut rdr = csv::Reader::from_path(csv_path)?;
@@ -107,7 +108,9 @@ fn read_csv(csv_path: &String, entry_builder_function: &dyn Fn(&HashMap<String, 
     for result in rdr.deserialize() {
         let record: HashMap<String, String> = result?;
         let accounting_entry = entry_builder_function(&record);
-        accountings.push(accounting_entry);
+        if accounting_entry.date_transaction.month() == month && accounting_entry.date_transaction.year() == year {
+            accountings.push(accounting_entry);
+        }
     }
     return Ok(accountings)
 }
@@ -146,7 +149,7 @@ fn main() -> Result<(), csv::Error> {
         Err(why) => panic!("Error when collecting arguments, try somethin like \"cargo run 12 2019 guess dummy.csv\": {:?}", why),
         Ok(tuple_result) => tuple_result,
     };
-    let accountings = read_csv(&file_name, &build_accounting_entry_from_raw_csv_record)?;
+    let accountings = read_csv(&file_name, current_month, year, &build_accounting_entry_from_raw_csv_record)?;
     match action.as_ref() {
         "guess" => {
             print_accountings(&accountings, current_month);
@@ -154,13 +157,13 @@ fn main() -> Result<(), csv::Error> {
             println!("Modify {:?} and save it as {:?}", "account_guessed_categories".to_string(), "account_guessed_categories_modified".to_string());
         },
         "sum" => {
-            let accountings_modified = read_csv(&"account_guessed_categories_modified.csv".to_string(), &build_accounting_entry_from_csv_record_with_categories)?;
+            let accountings_modified = read_csv(&"account_guessed_categories_modified.csv".to_string(), current_month, year, &build_accounting_entry_from_csv_record_with_categories)?;
             print_accountings(&accountings_modified, current_month);
         },
         _ => println!("Action should be guess or sum!"), // todo: better check
     }
         // todo: guess from older CSVs
-        // todo: check year
+        // todo: remove month check from sums
     Ok(())
 }
 
