@@ -23,7 +23,7 @@ const all_expense_categories: [&str; 18] = [  // todo: put as global/const
     "RetraitsSO",
     "RetraitsP",
     "Impots",
-    "DépensesSpe",
+    "DepensesSpe",
     "GainsSpe",
     "VirComptes",
     "Unknown",
@@ -149,10 +149,10 @@ fn collect_args() -> Result<(u32, i32, String, String), ParseIntError> {
     // month/year/action/file_name
     // todo: check length of args?
     let args: Vec<String> = env::args().collect();
-    let month = args[1].parse::<u32>()?; 
-    let year = args[2].parse::<i32>()?; 
-    let action = args[3].to_string();
-    let file_name = args[4].to_string();
+    let action = args[1].to_string();
+    let file_name = args[2].to_string();
+    let month = args[3].parse::<u32>()?; 
+    let year = args[4].parse::<i32>()?; 
 
     Ok((month, year, action, file_name))
 }
@@ -171,7 +171,7 @@ fn main() -> Result<(), csv::Error> {
             println!("Modify {:?} and save it as {:?}", file_name_guessed.to_string(), "account_guessed_categories_modified".to_string());
         },
         "sum" => {
-            let accountings_modified = read_csv(&"account_guessed_categories_modified.csv".to_string(), current_month, year, &build_accounting_entry_from_csv_record_with_categories)?;
+            let accountings_modified = read_csv(&file_name, current_month, year, &build_accounting_entry_from_csv_record_with_categories)?;
             print_accountings(&accountings_modified, current_month);
         },
         _ => println!("Action should be guess or sum!"), // todo: better check
