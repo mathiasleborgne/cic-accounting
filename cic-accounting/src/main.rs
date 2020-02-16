@@ -8,6 +8,26 @@ use csv::Writer;
 use crate::chrono::Datelike; // todo: why?
 use std::num::ParseIntError;
 
+const all_expense_categories: [&str; 18] = [  // todo: put as global/const
+    "Salaire",
+    "Loyer",
+    "Courses",
+    "RE",
+    "Fixes",
+    "Divers",
+    "Restaurants",
+    "Voiture",
+    "RATP",
+    "SNCF",
+    "Retraits",
+    "RetraitsSO",
+    "RetraitsP",
+    "Impots",
+    "DépensesSpe",
+    "GainsSpe",
+    "VirComptes",
+    "Unknown",
+];
 
 #[derive(Debug)]
 struct AccountingEntry {
@@ -22,7 +42,7 @@ fn get_category_from_label(label: &String) -> String {
     if label.contains("VIR PEL") {
         return "Transfer".to_string()
     } else if label.contains("APRR AUTOROUTE CARTE") {
-        return "Car".to_string()
+        return "Voiture".to_string()
     }
     return "Unknown".to_string()
 }
@@ -82,9 +102,8 @@ fn get_sum_category(accountings: &Vec<AccountingEntry>, category: String, curren
     return sum_category
 }
 
-fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>) -> Result<(), Box<dyn Error>> {
-    let path = "account_guessed_categories.csv";
-    let mut wtr = Writer::from_path(path)?;
+fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_guessed: &String) -> Result<(), Box<dyn Error>> {
+    let mut wtr = Writer::from_path(file_name_guessed)?;
     wtr.write_record(&["Date", "Datedevaleur", "Montant", "Libelle", "Category"]);
     for accounting_entry in accountings {
         wtr.write_record(&[
@@ -92,10 +111,10 @@ fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>) -> Result<()
             accounting_entry.date_effect.clone(),
             accounting_entry.amount.to_string().clone(),
             accounting_entry.label.clone(),
-            accounting_entry.category.clone(), // todo: this always displays "Car"
+            accounting_entry.category.clone(), // todo: this always displays "Voiture"
         ])?;
     } 
-    println!("Saved file {:?}", path);
+    println!("Saved file {:?}", file_name_guessed);
     Ok(())
 }
     
@@ -118,12 +137,6 @@ fn read_csv(csv_path: &String, month: u32, year: i32, entry_builder_function: &d
 fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
     println!("{:#?}", accountings);
     println!("----------------");
-    let all_expense_categories = [
-        "Car",
-        "Transfer",
-        "Divers",
-        "Unknown",
-    ];
     for expense_category in all_expense_categories.iter() {        
         println!("{:?} expenses: {:?}", expense_category, get_sum_category(&accountings, expense_category.to_string(), current_month));
     }
@@ -153,8 +166,9 @@ fn main() -> Result<(), csv::Error> {
     match action.as_ref() {
         "guess" => {
             print_accountings(&accountings, current_month);
-            write_csv_guessed_categories(&accountings); 
-            println!("Modify {:?} and save it as {:?}", "account_guessed_categories".to_string(), "account_guessed_categories_modified".to_string());
+            let file_name_guessed = "guessed_".to_owned() + &file_name;
+            write_csv_guessed_categories(&accountings, &file_name_guessed); 
+            println!("Modify {:?} and save it as {:?}", file_name_guessed.to_string(), "account_guessed_categories_modified".to_string());
         },
         "sum" => {
             let accountings_modified = read_csv(&"account_guessed_categories_modified.csv".to_string(), current_month, year, &build_accounting_entry_from_csv_record_with_categories)?;
@@ -162,8 +176,10 @@ fn main() -> Result<(), csv::Error> {
         },
         _ => println!("Action should be guess or sum!"), // todo: better check
     }
+        // todo: replace 1st line
         // todo: guess from older CSVs
         // todo: remove month check from sums
+        // todo: action  1st in arguments, and remove unused args for sum
     Ok(())
 }
 
