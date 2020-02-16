@@ -99,14 +99,15 @@ fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>) -> Result<()
     Ok(())
 }
     
-fn read_csv(csv_path: String, entry_builder_function: &dyn Fn(&HashMap<String, String>)-> AccountingEntry) -> Result<Vec<AccountingEntry>, csv::Error> {
+fn read_csv(csv_path: &String, entry_builder_function: &dyn Fn(&HashMap<String, String>)-> AccountingEntry) -> Result<Vec<AccountingEntry>, csv::Error> {
     // pass an entry_builder_function to read csv with or without categories
     // https://www.reddit.com/r/rust/comments/bwplfl/read_csv_columns/
     let mut rdr = csv::Reader::from_path(csv_path)?;
     let mut accountings: Vec<AccountingEntry> = Vec::new();
     for result in rdr.deserialize() {
         let record: HashMap<String, String> = result?;
-        accountings.push(entry_builder_function(&record));
+        let accounting_entry = entry_builder_function(&record);
+        accountings.push(accounting_entry);
     }
     return Ok(accountings)
 }
@@ -141,20 +142,25 @@ fn collect_args() -> Result<(u32, i32, String, String), ParseIntError> {
 }
 
 fn main() -> Result<(), csv::Error> {
-    let accountings = read_csv("raw_account.csv".to_string(), &build_accounting_entry_from_raw_csv_record)?;
-    let current_month = 12;
     let (current_month, year, action, file_name) = match collect_args() {
         Err(why) => panic!("Error when collecting arguments, try somethin like \"cargo run 12 2019 guess dummy.csv\": {:?}", why),
         Ok(tuple_result) => tuple_result,
     };
-    print_accountings(&accountings, current_month);
-    write_csv_guessed_categories(&accountings); 
+    let accountings = read_csv(&file_name, &build_accounting_entry_from_raw_csv_record)?;
+    match action.as_ref() {
+        "guess" => {
+            print_accountings(&accountings, current_month);
+            write_csv_guessed_categories(&accountings); 
+            println!("Modify {:?} and save it as {:?}", "account_guessed_categories".to_string(), "account_guessed_categories_modified".to_string());
+        },
+        "sum" => {
+            let accountings_modified = read_csv(&"account_guessed_categories_modified.csv".to_string(), &build_accounting_entry_from_csv_record_with_categories)?;
+            print_accountings(&accountings_modified, current_month);
+        },
+        _ => println!("Action should be guess or sum!"), // todo: better check
+    }
         // todo: guess from older CSVs
         // todo: check year
-        // todo: split into 2 actions for guessing, then summing
-    println!("Modify {:?} and save it as {:?}", "account_guessed_categories".to_string(), "account_guessed_categories_modified".to_string());
-    let accountings_modified = read_csv("account_guessed_categories_modified.csv".to_string(), &build_accounting_entry_from_csv_record_with_categories)?;
-    print_accountings(&accountings_modified, current_month);
     Ok(())
 }
 
