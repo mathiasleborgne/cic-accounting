@@ -4,10 +4,13 @@ extern crate chrono;
 use std::collections::HashMap;
 use std::error::Error;
 use std::env;
+use std::fs;
+use std::path::Path;
 use csv::Writer;
 use crate::chrono::Datelike; // todo: why?
 use std::num::ParseIntError;
 use regex::Regex;
+
 
 const ALL_EXPENSE_CATEGORIES: [&str; 18] = [  // todo: put as global/const
     "Salaire",
@@ -29,6 +32,7 @@ const ALL_EXPENSE_CATEGORIES: [&str; 18] = [  // todo: put as global/const
     "VirComptes",
     "Unknown",
 ];
+const PATH_MODIFIED_ACCOUNTS: &'static str = "./modified_accounts/";
 
 #[derive(Debug)]
 struct AccountingEntry {
@@ -40,11 +44,6 @@ struct AccountingEntry {
 }
 
 fn get_category_from_label(label: &String, known_labels_categories_map: &HashMap<String, String>) -> String {
-    if label.contains("VIR PEL") {
-        return "Transfer".to_string()
-    } else if label.contains("APRR AUTOROUTE CARTE") {
-        return "Voiture".to_string()
-    }
     match known_labels_categories_map.get(&get_label_without_number(label)) {
         Some(category) => return category.clone(),
         _ => return "Unknown".to_string(),
@@ -150,7 +149,7 @@ fn read_csv(csv_path: &String, month: Option<u32>, year: Option<i32>, entry_buil
 }
 
 fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
-    println!("{:#?}", accountings);
+    // println!("{:#?}", accountings);
     println!("----------------");
     for expense_category in ALL_EXPENSE_CATEGORIES.iter() {        
         println!("{:?} expenses: {:?}", expense_category, get_sum_category(&accountings, expense_category.to_string(), current_month));
@@ -165,21 +164,31 @@ fn get_label_without_number(label: &String) -> String {
     return re.replace_all(label, "").to_string();
 }
 
-fn get_known_labels_categories_map() -> Result<(HashMap<String, String>), csv::Error> {
-    // todo: parse actual files
+fn get_known_labels_categories_map() -> Result<HashMap<String, String>, csv::Error> {
+    let paths = fs::read_dir(PATH_MODIFIED_ACCOUNTS).unwrap();
     let mut known_labels_categories_map = HashMap::new();
-    let accountings_guessed = read_csv(&"guessed_accounts_example.csv".to_string(), None, None, &build_accounting_entry_from_csv_record_with_categories)?;
-    for accounting_guessed in accountings_guessed {
-        known_labels_categories_map.insert(get_label_without_number(&accounting_guessed.label.clone()) , accounting_guessed.category.clone());
+    for path in paths {
+        // println!("Name: {}", path.unwrap().path().display());
+        match path.unwrap().path().to_str() {
+            None => panic!("new path is not a valid UTF-8 sequence"),
+            Some(path_str) => {
+                let accountings_guessed_file = read_csv(&path_str.to_string(), None, None, &build_accounting_entry_from_csv_record_with_categories)?;
+                for accounting_guessed in accountings_guessed_file {
+                    known_labels_categories_map.insert(get_label_without_number(&accounting_guessed.label.clone()) , accounting_guessed.category.clone());
+                }
+            },
+        }
     }
     println!("Labels map: {:?}", known_labels_categories_map);
+    // example: 
     // known_labels_categories_map.insert(get_label_without_number(&"PAIEMENT CB  CHAVILLE MONOPRIX CARTE ".to_string()), "Courses".to_string());
     Ok(known_labels_categories_map)
 }
 
 fn collect_args() -> Result<(u32, i32, String, String), ParseIntError> {
-    // month/year/action/file_name
+    // action/file_name/month/year
     // todo: check length of args?
+    // todo: use crate?
     let args: Vec<String> = env::args().collect();
     let action = args[1].to_string();
     let file_name = args[2].to_string();
@@ -209,6 +218,8 @@ fn main() -> Result<(), csv::Error> {
         "sum" => {
             let accountings_modified = read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_csv_record_with_categories)?;
             print_accountings(&accountings_modified, current_month);
+            let path_folder = Path::new(PATH_MODIFIED_ACCOUNTS);
+            fs::copy(&file_name, path_folder.join(&file_name))?;
         },
         _ => println!("Action should be guess or sum!"), // todo: better check
     }
@@ -218,6 +229,8 @@ fn main() -> Result<(), csv::Error> {
         //   read all files
         // todo: remove month check from sums funcitons
         // todo: remove unused args for sum action
+        // todo: retraitsSO/P should be Retraits
+        // todo: copy modified file into modified_accounts folder after summing
     Ok(())
 }
 
