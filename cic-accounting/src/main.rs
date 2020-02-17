@@ -9,7 +9,7 @@ use crate::chrono::Datelike; // todo: why?
 use std::num::ParseIntError;
 use regex::Regex;
 
-const all_expense_categories: [&str; 18] = [  // todo: put as global/const
+const ALL_EXPENSE_CATEGORIES: [&str; 18] = [  // todo: put as global/const
     "Salaire",
     "Loyer",
     "Courses",
@@ -122,7 +122,7 @@ fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_gu
     Ok(())
 }
     
-fn read_csv(csv_path: &String, month: u32, year: i32, entry_builder_function: &dyn Fn(&HashMap<String, String>)-> AccountingEntry) 
+fn read_csv(csv_path: &String, month: Option<u32>, year: Option<i32>, entry_builder_function: &dyn Fn(&HashMap<String, String>)-> AccountingEntry) 
     -> Result<Vec<AccountingEntry>, csv::Error> {
     // pass an entry_builder_function to read csv with or without categories
     // https://www.reddit.com/r/rust/comments/bwplfl/read_csv_columns/
@@ -131,8 +131,19 @@ fn read_csv(csv_path: &String, month: u32, year: i32, entry_builder_function: &d
     for result in rdr.deserialize() {
         let record: HashMap<String, String> = result?;
         let accounting_entry = entry_builder_function(&record);
-        if accounting_entry.date_transaction.month() == month && accounting_entry.date_transaction.year() == year {
-            accountings.push(accounting_entry);
+        // todo: make Pair month, year optional
+        match month {
+            None => accountings.push(accounting_entry),
+            Some(month) => {
+                match year  {
+                    None => accountings.push(accounting_entry),
+                    Some(year) => {
+                        if accounting_entry.date_transaction.month() == month && accounting_entry.date_transaction.year() == year {
+                            accountings.push(accounting_entry);
+                        }
+                    }
+                }
+            },
         }
     }
     return Ok(accountings)
@@ -141,7 +152,7 @@ fn read_csv(csv_path: &String, month: u32, year: i32, entry_builder_function: &d
 fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
     println!("{:#?}", accountings);
     println!("----------------");
-    for expense_category in all_expense_categories.iter() {        
+    for expense_category in ALL_EXPENSE_CATEGORIES.iter() {        
         println!("{:?} expenses: {:?}", expense_category, get_sum_category(&accountings, expense_category.to_string(), current_month));
     }
     println!("----------------");
@@ -154,12 +165,16 @@ fn get_label_without_number(label: &String) -> String {
     return re.replace_all(label, "").to_string();
 }
 
-fn get_known_labels_categories_map() -> HashMap<String, String> {
-    // todo: parse files
+fn get_known_labels_categories_map() -> Result<(HashMap<String, String>), csv::Error> {
+    // todo: parse actual files
     let mut known_labels_categories_map = HashMap::new();
+    let accountings_guessed = read_csv(&"guessed_accounts_example.csv".to_string(), None, None, &build_accounting_entry_from_csv_record_with_categories)?;
+    for accounting_guessed in accountings_guessed {
+        known_labels_categories_map.insert(get_label_without_number(&accounting_guessed.label.clone()) , accounting_guessed.category.clone());
+    }
+    println!("Labels map: {:?}", known_labels_categories_map);
     // known_labels_categories_map.insert(get_label_without_number(&"PAIEMENT CB  CHAVILLE MONOPRIX CARTE ".to_string()), "Courses".to_string());
-    known_labels_categories_map.insert(get_label_without_number(&"PAIEMENT CB 1112 CHAVILLE MONOPRIX CARTE 07458715".to_string()), "Courses".to_string());
-    return known_labels_categories_map
+    Ok(known_labels_categories_map)
 }
 
 fn collect_args() -> Result<(u32, i32, String, String), ParseIntError> {
@@ -181,18 +196,18 @@ fn main() -> Result<(), csv::Error> {
     };
     match action.as_ref() {
         "guess" => {
-            let known_labels_categories_map = get_known_labels_categories_map();
+            let known_labels_categories_map = get_known_labels_categories_map()?;
             let build_accounting_entry_from_raw_csv_record_with_cats = 
                 |record: &HashMap<String, String>| 
                 build_accounting_entry_from_raw_csv_record(record, &known_labels_categories_map);
-            let accountings = read_csv(&file_name, current_month, year, &build_accounting_entry_from_raw_csv_record_with_cats)?;
+            let accountings = read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_raw_csv_record_with_cats)?;
             print_accountings(&accountings, current_month);
             let file_name_guessed = "guessed_".to_owned() + &file_name;
             write_csv_guessed_categories(&accountings, &file_name_guessed); 
             println!("Modify {:?} and save it as {:?}", file_name_guessed.to_string(), "account_guessed_categories_modified".to_string());
         },
         "sum" => {
-            let accountings_modified = read_csv(&file_name, current_month, year, &build_accounting_entry_from_csv_record_with_categories)?;
+            let accountings_modified = read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_csv_record_with_categories)?;
             print_accountings(&accountings_modified, current_month);
         },
         _ => println!("Action should be guess or sum!"), // todo: better check
