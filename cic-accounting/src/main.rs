@@ -109,7 +109,7 @@ fn get_sum_category(accountings: &Vec<AccountingEntry>, category: String, curren
 
 fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_guessed: &String) -> Result<(), Box<dyn Error>> {
     let mut wtr = Writer::from_path(file_name_guessed)?;
-    wtr.write_record(&["Date", "Datedevaleur", "Montant", "Libelle", "Category"]);
+    wtr.write_record(&["Date", "Datedevaleur", "Montant", "Libelle", "Category"])?;
     for accounting_entry in accountings {
         wtr.write_record(&[
             accounting_entry.date_transaction.format("%m/%d/%Y").to_string(),
@@ -227,7 +227,7 @@ fn main() -> Result<(), csv::Error> {
     };
     match action.as_ref() {
         "guess" => {
-            replace_first_line(&file_name.to_string());
+            replace_first_line(&file_name.to_string())?;
             let known_labels_categories_map = get_known_labels_categories_map()?;
             let build_accounting_entry_from_raw_csv_record_with_cats = 
                 |record: &HashMap<String, String>| 
@@ -235,7 +235,10 @@ fn main() -> Result<(), csv::Error> {
             let accountings = read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_raw_csv_record_with_cats)?;
             print_accountings(&accountings, current_month);
             let file_name_guessed = "guessed_".to_owned() + &file_name;
-            write_csv_guessed_categories(&accountings, &file_name_guessed); 
+            match write_csv_guessed_categories(&accountings, &file_name_guessed) {
+                Err(why) => panic!("Error when writing file: {:?}", why),
+                Ok(nothing) => nothing, // todo: what is the right syntax in this case?
+            }; 
             println!("Modify {:?} and save it as {:?}", file_name_guessed.to_string(), "account_guessed_categories_modified".to_string());
         },
         "sum" => {
@@ -250,6 +253,7 @@ fn main() -> Result<(), csv::Error> {
         // todo: remove month check from sums funcitons
         // todo: remove unused args for sum action
         // todo: retraitsSO/P should be Retraits
+        // todo: check expense categories after modification are in ALL_EXPENSE_CATEGORIES
     Ok(())
 }
 
