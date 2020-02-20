@@ -202,18 +202,17 @@ fn collect_args() -> Result<(u32, i32, String, String), ParseIntError> {
 
 fn replace_first_line(file_name: &String)-> Result<(), io::Error> {
     // https://stackoverflow.com/questions/27215396/how-to-replace-a-word-in-a-file-in-a-txt
-    // todo: fix data.replace
+    // https://stackoverflow.com/questions/27082848/rust-create-a-string-from-file-read-to-end
     let file_path = Path::new(&file_name);
-
-    // Open and read the file entirely
-    let mut data = String::new();
+    let mut file_content = Vec::new();
     {
-        let mut src = File::open(&file_path)?;
-        src.read_to_string(&mut data)?;
+        // can't just read as string as not-utf8 character appear (thanks CIC)
+        let mut file = File::open(&file_path).expect("Unable to open file");
+        file.read_to_end(&mut file_content).expect("Unable to read");
     }
-    // Run the replace operation in memory
-    let new_data = data.replace("Date,Date de valeur,Montant,Libell�,Solde", "Date,Datedevaleur,Montant,Libelle,Solde");
-
+    let position_nl = file_content.iter().position(| &x| x == 10).unwrap() + 1;
+    let rest_of_file = String::from_utf8((&file_content[position_nl..]).to_vec());
+    let new_data = "Date,Datedevaleur,Montant,Libelle,Solde\n".to_string() + &rest_of_file.unwrap();
     // Recreate the file and dump the processed contents to it
     let mut dst = File::create(&file_path)?;
     dst.write(new_data.as_bytes())?;
@@ -258,7 +257,6 @@ fn main() -> Result<(), csv::Error> {
         },
         _ => println!("Action should be guess or sum!"), // todo: better check
     }
-        // todo: replace 1st line
         // todo: remove month check from sums funcitons
         // todo: remove unused args for sum action
         // todo: retraitsSO/P should be Retraits
