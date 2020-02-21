@@ -220,6 +220,27 @@ fn replace_first_line(file_name: &String)-> Result<(), io::Error> {
     Ok(())
 }
 
+fn guess_accounting_entries_from_csv(file_name: &String, current_month: u32, year: i32) -> Result<Vec<AccountingEntry>, csv::Error> {
+    replace_first_line(&file_name.to_string())?;
+    let known_labels_categories_map = get_known_labels_categories_map()?;
+    let build_accounting_entry_from_raw_csv_record_with_cats = 
+        |record: &HashMap<String, String>| 
+        build_accounting_entry_from_raw_csv_record(record, &known_labels_categories_map);
+    Ok(read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_raw_csv_record_with_cats)?)
+}
+
+fn guess_categories(file_name: &String, current_month: u32, year: i32) -> Result<(), csv::Error> {
+    let accountings = guess_accounting_entries_from_csv(&file_name, current_month, year)?;
+    print_accountings(&accountings, current_month);
+    let file_name_guessed = "guessed_".to_owned() + &file_name;
+    match write_csv_guessed_categories(&accountings, &file_name_guessed) {
+        Err(why) => panic!("Error when writing file: {:?}", why),
+        Ok(nothing) => nothing, // todo: what is the right syntax in this case?
+    }; 
+    println!("Modify {:?} and save it as {:?}", file_name_guessed.to_string(), "account_guessed_categories_modified".to_string());
+    Ok(())
+}
+
 fn main() -> Result<(), csv::Error> {
     let (current_month, year, action, file_name) = match collect_args() {
         Err(why) => panic!("Error when collecting arguments, try somethin like \"cargo run 12 2019 guess dummy.csv\": {:?}", why),
@@ -227,19 +248,7 @@ fn main() -> Result<(), csv::Error> {
     };
     match action.as_ref() {
         "guess" => {
-            replace_first_line(&file_name.to_string())?;
-            let known_labels_categories_map = get_known_labels_categories_map()?;
-            let build_accounting_entry_from_raw_csv_record_with_cats = 
-                |record: &HashMap<String, String>| 
-                build_accounting_entry_from_raw_csv_record(record, &known_labels_categories_map);
-            let accountings = read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_raw_csv_record_with_cats)?;
-            print_accountings(&accountings, current_month);
-            let file_name_guessed = "guessed_".to_owned() + &file_name;
-            match write_csv_guessed_categories(&accountings, &file_name_guessed) {
-                Err(why) => panic!("Error when writing file: {:?}", why),
-                Ok(nothing) => nothing, // todo: what is the right syntax in this case?
-            }; 
-            println!("Modify {:?} and save it as {:?}", file_name_guessed.to_string(), "account_guessed_categories_modified".to_string());
+            guess_categories(&file_name, current_month, year)?;
         },
         "sum" => {
             let accountings_modified = read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_csv_record_with_categories)?;
