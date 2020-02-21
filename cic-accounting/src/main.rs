@@ -264,3 +264,17 @@ fn main() -> Result<(), csv::Error> {
     Ok(())
 }
 
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+    
+    #[test]
+    fn test_acquisition() {
+        let accountings = guess_accounting_entries_from_csv(&"raw_account_2.csv".to_string(), 12, 2019).unwrap();
+        let accounting_entry = &accountings[0];
+        assert_eq!(accounting_entry.amount, -1.60);
+    }
+
+}
