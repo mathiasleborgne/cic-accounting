@@ -46,10 +46,14 @@ struct AccountingEntry {
 }
 
 fn get_category_from_label(label: &String, known_labels_categories_map: &HashMap<String, String>) -> String {
-    match known_labels_categories_map.get(&get_label_without_number(label)) {
-        Some(category) => return category.clone(),
-        _ => return "Unknown".to_string(),
+    let mut guessed_category = match known_labels_categories_map.get(&get_label_without_number(label)) {
+        Some(category) => category.clone(),
+        _ => "Unknown".to_string(),
+    };
+    if guessed_category == "RetraitsSO" || guessed_category == "RetraitsP" {
+        guessed_category = "Retraits".to_string();
     }
+    guessed_category
 }
 
 fn build_accounting_entry_from_raw_csv_record(record: &HashMap<String, String>, known_labels_categories_map: &HashMap<String, String>) -> AccountingEntry {
@@ -203,6 +207,7 @@ fn collect_args() -> Result<(u32, i32, String, String), ParseIntError> {
 fn replace_first_line(file_name: &String)-> Result<(), io::Error> {
     // https://stackoverflow.com/questions/27215396/how-to-replace-a-word-in-a-file-in-a-txt
     // https://stackoverflow.com/questions/27082848/rust-create-a-string-from-file-read-to-end
+
     let file_path = Path::new(&file_name);
     let mut file_content = Vec::new();
     {
@@ -210,8 +215,9 @@ fn replace_first_line(file_name: &String)-> Result<(), io::Error> {
         let mut file = File::open(&file_path).expect("Unable to open file");
         file.read_to_end(&mut file_content).expect("Unable to read");
     }
-    let position_nl = file_content.iter().position(| &x| x == 10).unwrap() + 1;
-    let rest_of_file = String::from_utf8((&file_content[position_nl..]).to_vec());
+    let position_newline = file_content.iter().position(| &x| x == 10).unwrap() + 1;
+    // todo: replace unwrap?
+    let rest_of_file = String::from_utf8((&file_content[position_newline..]).to_vec());
     let new_data = "Date,Datedevaleur,Montant,Libelle,Solde\n".to_string() + &rest_of_file.unwrap();
     // Recreate the file and dump the processed contents to it
     let mut dst = File::create(&file_path)?;
@@ -261,6 +267,7 @@ fn main() -> Result<(), csv::Error> {
         // todo: remove unused args for sum action
         // todo: retraitsSO/P should be Retraits
         // todo: check expense categories after modification are in ALL_EXPENSE_CATEGORIES
+        // todo: check length after removing 1st line
     Ok(())
 }
 
@@ -269,12 +276,43 @@ fn main() -> Result<(), csv::Error> {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+    const MONTH_TEST: u32 = 12;
+    const FILE_NAME_TEST: &'static str = "raw_account_2.csv";
+    // todo: factorize
+    // todo: test length
     
     #[test]
     fn test_acquisition() {
-        let accountings = guess_accounting_entries_from_csv(&"raw_account_2.csv".to_string(), 12, 2019).unwrap();
+        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
         let accounting_entry = &accountings[0];
-        assert_eq!(accounting_entry.amount, -1.60);
+        assert_eq!(accounting_entry.amount, -1.60);       
+    }
+    
+    #[test]
+    fn test_length() {
+        // NB: last entry is not in selected month/year, so it's excluded
+        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
+        assert_eq!(accountings.len(), 5);       
+    }
+    
+    #[test]
+    fn test_auto_categories() {
+        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
+        let accounting_entry = &accountings[0];
+        assert_eq!(accounting_entry.category, "Voiture");        
+    }
+
+    #[test]
+    fn test_auto_categories_modified() {
+        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
+        let accounting_entry = &accountings[4];
+        assert_eq!(accounting_entry.category, "Retraits");        
+    }
+
+    #[test]
+    fn test_sum() {
+        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
+        assert_eq!(get_sum_all_amounts(&accountings, MONTH_TEST), -105.45);
     }
 
 }
