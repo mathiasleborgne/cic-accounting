@@ -154,6 +154,15 @@ fn read_csv(csv_path: &String, month: Option<u32>, year: Option<i32>, entry_buil
     return Ok(accountings)
 }
 
+fn check_categories(accountings: &Vec<AccountingEntry>) {
+    for accounting_entry in accountings {
+        match ALL_EXPENSE_CATEGORIES.iter().find(| &&x| x == accounting_entry.category) {
+            Some(_) => {},
+            None => panic!("Category not found: {:?}", accounting_entry.category),
+        }
+    }
+}
+
 fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
     // println!("{:#?}", accountings);
     println!("Sum for {:?} accounting entries for month {:?}", accountings.len(), current_month);
@@ -258,6 +267,7 @@ fn main() -> Result<(), csv::Error> {
         },
         "sum" => {
             let accountings_modified = read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_csv_record_with_categories)?;
+            check_categories(&accountings_modified);
             print_accountings(&accountings_modified, current_month);
             let path_folder = Path::new(PATH_MODIFIED_ACCOUNTS);
             fs::copy(&file_name, path_folder.join(&file_name))?;
@@ -267,7 +277,6 @@ fn main() -> Result<(), csv::Error> {
         // todo: remove month check from sums funcitons
         // todo: remove unused args for sum action
         // todo: retraitsSO/P should be Retraits
-        // todo: check expense categories after modification are in ALL_EXPENSE_CATEGORIES
         // todo: check length after removing 1st line
     Ok(())
 }
