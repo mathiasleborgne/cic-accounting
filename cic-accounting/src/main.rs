@@ -90,12 +90,10 @@ fn build_accounting_entry_from_csv_record_with_categories(record: &HashMap<Strin
     }
 }
 
-fn get_sum_all_amounts(accountings: &Vec<AccountingEntry>, current_month: u32) -> f32 {
+fn get_sum_all_amounts(accountings: &Vec<AccountingEntry>) -> f32 {
     let mut sum_all_amounts = 0.; 
     for accounting_entry in accountings {
-        if accounting_entry.date_transaction.month() == current_month {
-            sum_all_amounts += accounting_entry.amount;
-        }
+        sum_all_amounts += accounting_entry.amount;
     }
     return sum_all_amounts
 }
@@ -274,10 +272,8 @@ fn main() -> Result<(), csv::Error> {
         },
         _ => println!("Action should be guess or sum!"), // todo: better check
     }
-        // todo: remove month check from sums funcitons
         // todo: remove unused args for sum action
         // todo: retraitsSO/P should be Retraits
-        // todo: check length after removing 1st line
     Ok(())
 }
 
