@@ -156,6 +156,7 @@ fn read_csv(csv_path: &String, month: Option<u32>, year: Option<i32>, entry_buil
 
 fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
     // println!("{:#?}", accountings);
+    println!("Sum for {:?} accounting entries", accountings.len());
     println!("----------------");
     for expense_category in ALL_EXPENSE_CATEGORIES.iter() {        
         println!("{:?} expenses: {:?}", expense_category, get_sum_category(&accountings, expense_category.to_string(), current_month));
