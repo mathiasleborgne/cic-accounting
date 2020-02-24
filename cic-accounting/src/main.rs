@@ -125,7 +125,7 @@ fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_gu
     Ok(())
 }
     
-fn read_csv(csv_path: &String, month: Option<u32>, year: Option<i32>, entry_builder_function: &dyn Fn(&HashMap<String, String>)-> AccountingEntry) 
+fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>, entry_builder_function: &dyn Fn(&HashMap<String, String>)-> AccountingEntry) 
     -> Result<Vec<AccountingEntry>, csv::Error> {
     // pass an entry_builder_function to read csv with or without categories
     // https://www.reddit.com/r/rust/comments/bwplfl/read_csv_columns/
@@ -134,17 +134,11 @@ fn read_csv(csv_path: &String, month: Option<u32>, year: Option<i32>, entry_buil
     for result in rdr.deserialize() {
         let record: HashMap<String, String> = result?;
         let accounting_entry = entry_builder_function(&record);
-        // todo: make Pair month, year optional
-        match month {
+        match month_year {
             None => accountings.push(accounting_entry),
-            Some(month) => {
-                match year  {
-                    None => accountings.push(accounting_entry),
-                    Some(year) => {
-                        if accounting_entry.date_transaction.month() == month && accounting_entry.date_transaction.year() == year {
-                            accountings.push(accounting_entry);
-                        }
-                    }
+            Some((month, year)) => {
+                if accounting_entry.date_transaction.month() == month && accounting_entry.date_transaction.year() == year {
+                    accountings.push(accounting_entry);
                 }
             },
         }
@@ -186,7 +180,7 @@ fn get_known_labels_categories_map() -> Result<HashMap<String, String>, csv::Err
         match path.unwrap().path().to_str() {
             None => panic!("new path is not a valid UTF-8 sequence"),
             Some(path_str) => {
-                let accountings_guessed_file = read_csv(&path_str.to_string(), None, None, &build_accounting_entry_from_csv_record_with_categories)?;
+                let accountings_guessed_file = read_csv(&path_str.to_string(), None, &build_accounting_entry_from_csv_record_with_categories)?;
                 for accounting_guessed in accountings_guessed_file {
                     known_labels_categories_map.insert(get_label_without_number(&accounting_guessed.label.clone()) , accounting_guessed.category.clone());
                 }
@@ -239,7 +233,7 @@ fn guess_accounting_entries_from_csv(file_name: &String, current_month: u32, yea
     let build_accounting_entry_from_raw_csv_record_with_cats = 
         |record: &HashMap<String, String>| 
         build_accounting_entry_from_raw_csv_record(record, &known_labels_categories_map);
-    Ok(read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_raw_csv_record_with_cats)?)
+    Ok(read_csv(&file_name, Some((current_month, year)), &build_accounting_entry_from_raw_csv_record_with_cats)?)
 }
 
 fn guess_categories(file_name: &String, current_month: u32, year: i32) -> Result<(), csv::Error> {
@@ -260,11 +254,9 @@ fn main() -> Result<(), csv::Error> {
         Ok(tuple_result) => tuple_result,
     };
     match action.as_ref() {
-        "guess" => {
-            guess_categories(&file_name, current_month, year)?;
-        },
+        "guess" => guess_categories(&file_name, current_month, year)?,
         "sum" => {
-            let accountings_modified = read_csv(&file_name, Some(current_month), Some(year), &build_accounting_entry_from_csv_record_with_categories)?;
+            let accountings_modified = read_csv(&file_name, Some((current_month, year)), &build_accounting_entry_from_csv_record_with_categories)?;
             check_categories(&accountings_modified);
             print_accountings(&accountings_modified, current_month);
             let path_folder = Path::new(PATH_MODIFIED_ACCOUNTS);
@@ -272,8 +264,7 @@ fn main() -> Result<(), csv::Error> {
         },
         _ => println!("Action should be guess or sum!"), // todo: better check
     }
-        // todo: remove unused args for sum action
-        // todo: retraitsSO/P should be Retraits
+        // todo: remove unused command line args for sum action
     Ok(())
 }
 
