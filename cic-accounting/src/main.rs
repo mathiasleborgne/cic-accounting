@@ -278,13 +278,16 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     const MONTH_TEST: u32 = 12;
+    const YEAR_TEST: i32 = 2019;
     const FILE_NAME_TEST: &'static str = "raw_account_2.csv";
-    // todo: factorize
-    // todo: test length
+
+    fn get_test_accountings() -> Result<Vec<AccountingEntry>, csv::Error> {
+        guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, YEAR_TEST)
+    }
     
     #[test]
     fn test_acquisition() {
-        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
+        let accountings = get_test_accountings().unwrap();
         let accounting_entry = &accountings[0];
         assert_eq!(accounting_entry.amount, -1.60);       
     }
@@ -292,28 +295,28 @@ mod tests {
     #[test]
     fn test_length() {
         // NB: last entry is not in selected month/year, so it's excluded
-        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
+        let accountings = get_test_accountings().unwrap();
         assert_eq!(accountings.len(), 5);       
     }
     
     #[test]
     fn test_auto_categories() {
-        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
+        let accountings = get_test_accountings().unwrap();
         let accounting_entry = &accountings[0];
         assert_eq!(accounting_entry.category, "Voiture");        
     }
 
     #[test]
     fn test_auto_categories_modified() {
-        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
+        let accountings = get_test_accountings().unwrap();
         let accounting_entry = &accountings[4];
         assert_eq!(accounting_entry.category, "Retraits");        
     }
 
     #[test]
     fn test_sum() {
-        let accountings = guess_accounting_entries_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, 2019).unwrap();
-        assert_eq!(get_sum_all_amounts(&accountings, MONTH_TEST), -105.45);
+        let accountings = get_test_accountings().unwrap();
+        assert_eq!(get_sum_all_amounts(&accountings), -105.45);
     }
 
 }
