@@ -9,12 +9,12 @@ use std::path::Path;
 use std::fs::File;
 use csv::Writer;
 use std::io::{self, Read, Write};
-use crate::chrono::Datelike; // todo: why?
+use crate::chrono::Datelike;
 use std::num::ParseIntError;
 use regex::Regex;
 
 
-const ALL_EXPENSE_CATEGORIES: [&str; 18] = [  // todo: put as global/const
+const ALL_EXPENSE_CATEGORIES: [&str; 18] = [
     "Salaire",
     "Loyer",
     "Courses",
@@ -98,11 +98,11 @@ fn get_sum_all_amounts(accountings: &Vec<AccountingEntry>) -> f32 {
     return sum_all_amounts
 }
 
-fn get_sum_category(accountings: &Vec<AccountingEntry>, category: String, current_month: u32) -> f32 {
+fn get_sum_category(accountings: &Vec<AccountingEntry>, category: String) -> f32 {
     // todo: not so clean
     let mut sum_category = 0.;
     for accounting_entry in accountings {
-        if accounting_entry.category == category && accounting_entry.date_transaction.month() == current_month {
+        if accounting_entry.category == category {
             sum_category += accounting_entry.amount;
         }
     }
@@ -160,7 +160,7 @@ fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
     println!("Sum for {:?} accounting entries for month {:?}", accountings.len(), current_month);
     println!("----------------");
     for expense_category in ALL_EXPENSE_CATEGORIES.iter() {        
-        println!("{:?} expenses: {:?}", expense_category, get_sum_category(&accountings, expense_category.to_string(), current_month));
+        println!("{:?} expenses: {:?}", expense_category, get_sum_category(&accountings, expense_category.to_string()));
     }
     println!("----------------");
     println!("Total expenses: {:?}", get_sum_all_amounts(&accountings));
@@ -242,7 +242,7 @@ fn guess_categories(file_name: &String, current_month: u32, year: i32) -> Result
     let file_name_guessed = "guessed_".to_owned() + &file_name;
     match write_csv_guessed_categories(&accountings, &file_name_guessed) {
         Err(why) => panic!("Error when writing file: {:?}", why),
-        Ok(nothing) => nothing, // todo: what is the right syntax in this case?
+        Ok(_) => {},
     }; 
     println!("Modify {:?} and save it as {:?}", file_name_guessed.to_string(), "account_guessed_categories_modified".to_string());
     Ok(())
@@ -264,7 +264,8 @@ fn main() -> Result<(), csv::Error> {
         },
         _ => println!("Action should be guess or sum!"), // todo: better check
     }
-        // todo: remove unused command line args for sum action
+    // todo: remove unused command line args for sum action
+    // todo: check usage of String vs &str
     Ok(())
 }
 
