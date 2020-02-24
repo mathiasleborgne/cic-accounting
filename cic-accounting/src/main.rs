@@ -45,7 +45,8 @@ struct AccountingEntry {
     category: String,
 }
 
-fn get_category_from_label(label: &String, known_labels_categories_map: &HashMap<String, String>) -> String {
+fn get_category_from_label(label: &String, known_labels_categories_map: &HashMap<String, String>) 
+    -> String {
     let mut guessed_category = match known_labels_categories_map.get(&get_label_without_number(label)) {
         Some(category) => category.clone(),
         _ => "Unknown".to_string(),
@@ -56,7 +57,9 @@ fn get_category_from_label(label: &String, known_labels_categories_map: &HashMap
     guessed_category
 }
 
-fn build_accounting_entry_from_raw_csv_record(record: &HashMap<String, String>, known_labels_categories_map: &HashMap<String, String>) -> AccountingEntry {
+fn build_accounting_entry_from_raw_csv_record(
+    record: &HashMap<String, String>, known_labels_categories_map: &HashMap<String, String>) 
+    -> AccountingEntry {
     // todo: there might be a way to avoid cloning in here...
     AccountingEntry { 
         date_transaction: match chrono::NaiveDate::parse_from_str(&record["Date"].to_string(), "%m/%d/%Y") {
@@ -73,7 +76,8 @@ fn build_accounting_entry_from_raw_csv_record(record: &HashMap<String, String>, 
     }
 }
 
-fn build_accounting_entry_from_csv_record_with_categories(record: &HashMap<String, String>) -> AccountingEntry {
+fn build_accounting_entry_from_csv_record_with_categories(record: &HashMap<String, String>) 
+    -> AccountingEntry {
     // todo: there might be a way to avoid cloning in here...
     AccountingEntry { 
         date_transaction: match chrono::NaiveDate::parse_from_str(&record["Date"].to_string(), "%m/%d/%Y") {
@@ -109,7 +113,8 @@ fn get_sum_category(accountings: &Vec<AccountingEntry>, category: String) -> f32
     return sum_category
 }
 
-fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_guessed: &String) -> Result<(), Box<dyn Error>> {
+fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_guessed: &String) 
+    -> Result<(), Box<dyn Error>> {
     let mut wtr = Writer::from_path(file_name_guessed)?;
     wtr.write_record(&["Date", "Datedevaleur", "Montant", "Libelle", "Category"])?;
     for accounting_entry in accountings {
@@ -125,7 +130,8 @@ fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_gu
     Ok(())
 }
     
-fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>, entry_builder_function: &dyn Fn(&HashMap<String, String>)-> AccountingEntry) 
+fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>, 
+            entry_builder_function: &dyn Fn(&HashMap<String, String>) -> AccountingEntry) 
     -> Result<Vec<AccountingEntry>, csv::Error> {
     // pass an entry_builder_function to read csv with or without categories
     // https://www.reddit.com/r/rust/comments/bwplfl/read_csv_columns/
@@ -137,7 +143,8 @@ fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>, entry_builder_fun
         match month_year {
             None => accountings.push(accounting_entry),
             Some((month, year)) => {
-                if accounting_entry.date_transaction.month() == month && accounting_entry.date_transaction.year() == year {
+                if accounting_entry.date_transaction.month() == month 
+                        && accounting_entry.date_transaction.year() == year {
                     accountings.push(accounting_entry);
                 }
             },
@@ -160,7 +167,8 @@ fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
     println!("Sum for {:?} accounting entries for month {:?}", accountings.len(), current_month);
     println!("----------------");
     for expense_category in ALL_EXPENSE_CATEGORIES.iter() {        
-        println!("{:?} expenses: {:?}", expense_category, get_sum_category(&accountings, expense_category.to_string()));
+        println!("{:?} expenses: {:?}", 
+                 expense_category, get_sum_category(&accountings, expense_category.to_string()));
     }
     println!("----------------");
     println!("Total expenses: {:?}", get_sum_all_amounts(&accountings));
@@ -180,9 +188,13 @@ fn get_known_labels_categories_map() -> Result<HashMap<String, String>, csv::Err
         match path.unwrap().path().to_str() {
             None => panic!("new path is not a valid UTF-8 sequence"),
             Some(path_str) => {
-                let accountings_guessed_file = read_csv(&path_str.to_string(), None, &build_accounting_entry_from_csv_record_with_categories)?;
+                let accountings_guessed_file = 
+                    read_csv(&path_str.to_string(), None, 
+                             &build_accounting_entry_from_csv_record_with_categories)?;
                 for accounting_guessed in accountings_guessed_file {
-                    known_labels_categories_map.insert(get_label_without_number(&accounting_guessed.label.clone()) , accounting_guessed.category.clone());
+                    known_labels_categories_map.insert(
+                        get_label_without_number(&accounting_guessed.label.clone()) , 
+                                                 accounting_guessed.category.clone());
                 }
             },
         }
@@ -227,13 +239,15 @@ fn replace_first_line(file_name: &String)-> Result<(), io::Error> {
     Ok(())
 }
 
-fn guess_accounting_entries_from_csv(file_name: &String, current_month: u32, year: i32) -> Result<Vec<AccountingEntry>, csv::Error> {
+fn guess_accounting_entries_from_csv(file_name: &String, current_month: u32, year: i32) 
+    -> Result<Vec<AccountingEntry>, csv::Error> {
     replace_first_line(&file_name.to_string())?;
     let known_labels_categories_map = get_known_labels_categories_map()?;
     let build_accounting_entry_from_raw_csv_record_with_cats = 
         |record: &HashMap<String, String>| 
         build_accounting_entry_from_raw_csv_record(record, &known_labels_categories_map);
-    Ok(read_csv(&file_name, Some((current_month, year)), &build_accounting_entry_from_raw_csv_record_with_cats)?)
+    Ok(read_csv(&file_name, Some((current_month, year)), 
+                &build_accounting_entry_from_raw_csv_record_with_cats)?)
 }
 
 fn guess_categories(file_name: &String, current_month: u32, year: i32) -> Result<(), csv::Error> {
@@ -244,19 +258,21 @@ fn guess_categories(file_name: &String, current_month: u32, year: i32) -> Result
         Err(why) => panic!("Error when writing file: {:?}", why),
         Ok(_) => {},
     }; 
-    println!("Modify {:?} and save it as {:?}", file_name_guessed.to_string(), "account_guessed_categories_modified".to_string());
+    println!("Modify {:?} and save it as something like {:?}", file_name_guessed.to_string(), 
+             "account_guessed_categories_modified".to_string());
     Ok(())
 }
 
 fn main() -> Result<(), csv::Error> {
     let (current_month, year, action, file_name) = match collect_args() {
-        Err(why) => panic!("Error when collecting arguments, try somethin like \"cargo run 12 2019 guess dummy.csv\": {:?}", why),
+        Err(why) => panic!("Error when collecting arguments, try somethin like \"cargo run guess dummy.csv 12 2019\": {:?}", why),
         Ok(tuple_result) => tuple_result,
     };
     match action.as_ref() {
         "guess" => guess_categories(&file_name, current_month, year)?,
         "sum" => {
-            let accountings_modified = read_csv(&file_name, Some((current_month, year)), &build_accounting_entry_from_csv_record_with_categories)?;
+            let accountings_modified = read_csv(&file_name, Some((current_month, year)),
+                                                &build_accounting_entry_from_csv_record_with_categories)?;
             check_categories(&accountings_modified);
             print_accountings(&accountings_modified, current_month);
             let path_folder = Path::new(PATH_MODIFIED_ACCOUNTS);
