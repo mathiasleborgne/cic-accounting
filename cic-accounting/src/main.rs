@@ -1,17 +1,17 @@
 extern crate csv;
 extern crate chrono;
+extern crate clap;
 
 use std::collections::HashMap;
 use std::error::Error;
-use std::env;
 use std::fs;
 use std::path::Path;
 use std::fs::File;
 use csv::Writer;
 use std::io::{self, Read, Write};
 use crate::chrono::Datelike;
-use std::num::ParseIntError;
 use regex::Regex;
+use clap::{Arg, App, SubCommand};
 
 
 const ALL_EXPENSE_CATEGORIES: [&str; 18] = [
@@ -162,9 +162,13 @@ fn check_categories(accountings: &Vec<AccountingEntry>) {
     }
 }
 
-fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
+fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: Option<u32>) {
     // println!("{:#?}", accountings);
-    println!("Sum for {:?} accounting entries for month {:?}", accountings.len(), current_month);
+    let month = match current_month {
+        Some(month) => month,
+        None => accountings[0].date_transaction.month(),
+    };
+    println!("Sum for {:?} accounting entries for month {:?}", accountings.len(), month);
     println!("----------------");
     for expense_category in ALL_EXPENSE_CATEGORIES.iter() {        
         println!("{:?} expenses: {:?}", 
@@ -205,17 +209,39 @@ fn get_known_labels_categories_map() -> Result<HashMap<String, String>, csv::Err
     Ok(known_labels_categories_map)
 }
 
-fn collect_args() -> Result<(u32, i32, String, String), ParseIntError> {
-    // action/file_name/month/year
-    // todo: check length of args?
-    // todo: use crate?
-    let args: Vec<String> = env::args().collect();
-    let action = args[1].to_string();
-    let file_name = args[2].to_string();
-    let month = args[3].parse::<u32>()?; 
-    let year = args[4].parse::<i32>()?; 
-
-    Ok((month, year, action, file_name))
+fn collect_args() -> clap::ArgMatches<'static> {
+    App::new("CICA")
+        .version("1.0")
+        .author("Mathias LB <mathias.leborgne@gmail.com>")
+        .about("Automatize expenses categories and sums for CIC bank accounts")
+        .subcommand(SubCommand::with_name("guess")
+                    .about("Guess categories from raw accounting file")
+                    .arg(Arg::with_name("FILE")
+                        .help("File name")
+                        .required(true)
+                        .index(1)
+                        .takes_value(true)
+                    )
+                    .arg(Arg::with_name("MONTH")
+                        .help("Month to check")
+                        .required(true)
+                        .index(2)
+                        .takes_value(true)
+                    )
+                    .arg(Arg::with_name("YEAR")
+                        .help("Year to check")
+                        .required(true)
+                        .index(3)
+                        .takes_value(true)
+                    ))
+        .subcommand(SubCommand::with_name("sum")
+                    .about("Sum categories from raw accounting file with categories")
+                    .arg(Arg::with_name("FILE")
+                        .help("File name")
+                        .required(true)
+                        .index(1)
+                        .takes_value(true)))
+        .get_matches()
 }
 
 fn replace_first_line(file_name: &String)-> Result<(), io::Error> {
@@ -252,7 +278,7 @@ fn guess_accounting_entries_from_csv(file_name: &String, current_month: u32, yea
 
 fn guess_categories(file_name: &String, current_month: u32, year: i32) -> Result<(), csv::Error> {
     let accountings = guess_accounting_entries_from_csv(&file_name, current_month, year)?;
-    print_accountings(&accountings, current_month);
+    print_accountings(&accountings, Some(current_month));
     let file_name_guessed = "guessed_".to_owned() + &file_name;
     match write_csv_guessed_categories(&accountings, &file_name_guessed) {
         Err(why) => panic!("Error when writing file: {:?}", why),
@@ -264,23 +290,31 @@ fn guess_categories(file_name: &String, current_month: u32, year: i32) -> Result
 }
 
 fn main() -> Result<(), csv::Error> {
-    let (current_month, year, action, file_name) = match collect_args() {
-        Err(why) => panic!("Error when collecting arguments, try somethin like \"cargo run guess dummy.csv 12 2019\": {:?}", why),
-        Ok(tuple_result) => tuple_result,
-    };
-    match action.as_ref() {
-        "guess" => guess_categories(&file_name, current_month, year)?,
-        "sum" => {
-            let accountings_modified = read_csv(&file_name, Some((current_month, year)),
-                                                &build_accounting_entry_from_csv_record_with_categories)?;
-            check_categories(&accountings_modified);
-            print_accountings(&accountings_modified, current_month);
-            let path_folder = Path::new(PATH_MODIFIED_ACCOUNTS);
-            fs::copy(&file_name, path_folder.join(&file_name))?;
-        },
-        _ => println!("Action should be guess or sum!"), // todo: better check
+    let matches = collect_args();
+    if let Some(sub_matches) = matches.subcommand_matches("guess") {
+        let file_name = sub_matches.value_of("FILE").unwrap().to_string();
+        let month = match sub_matches.value_of("MONTH").unwrap().parse::<u32>() {
+            Ok(month) => month,
+            Err(why) => panic!("month should be a number: {:?}", why),
+        };
+        let year = match sub_matches.value_of("YEAR").unwrap().parse::<i32>() {
+            Ok(year) => year,
+            Err(why) => panic!("year should be a number: {:?}", why),
+        };
+        guess_categories(&file_name, month, year)?;
     }
-    // todo: remove unused command line args for sum action
+    else if let Some(sub_matches) = matches.subcommand_matches("sum") {
+        let file_name = sub_matches.value_of("FILE").unwrap().to_string();
+        let accountings_modified = read_csv(&file_name, None,
+                                            &build_accounting_entry_from_csv_record_with_categories)?;
+        check_categories(&accountings_modified);
+        print_accountings(&accountings_modified, None);
+        let path_folder = Path::new(PATH_MODIFIED_ACCOUNTS);
+        fs::copy(&file_name, path_folder.join(&file_name))?;
+    }
+    else {
+        println!("Action should be guess or sum!"); // todo: better check
+    }
     // todo: check usage of String vs &str
     Ok(())
 }
