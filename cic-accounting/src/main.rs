@@ -45,7 +45,7 @@ struct AccountingEntry {
     category: String,
 }
 
-fn get_category_from_label(label: &String, known_labels_categories_map: &HashMap<String, String>) 
+fn get_category_from_label(label: &str, known_labels_categories_map: &HashMap<String, String>) 
     -> String {
     let mut guessed_category = match known_labels_categories_map.get(&get_label_without_number(label)) {
         Some(category) => category.clone(),
@@ -102,7 +102,7 @@ fn get_sum_all_amounts(accountings: &Vec<AccountingEntry>) -> f32 {
     return sum_all_amounts
 }
 
-fn get_sum_category(accountings: &Vec<AccountingEntry>, category: String) -> f32 {
+fn get_sum_category(accountings: &Vec<AccountingEntry>, category: &str) -> f32 {
     // todo: not so clean
     let mut sum_category = 0.;
     for accounting_entry in accountings {
@@ -113,7 +113,7 @@ fn get_sum_category(accountings: &Vec<AccountingEntry>, category: String) -> f32
     return sum_category
 }
 
-fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_guessed: &String) 
+fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_guessed: &str) 
     -> Result<(), Box<dyn Error>> {
     let mut wtr = Writer::from_path(file_name_guessed)?;
     wtr.write_record(&["Date", "Datedevaleur", "Montant", "Libelle", "Category"])?;
@@ -130,7 +130,7 @@ fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_gu
     Ok(())
 }
     
-fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>, 
+fn read_csv(csv_path: &str, month_year: Option<(u32, i32)>, 
             entry_builder_function: &dyn Fn(&HashMap<String, String>) -> AccountingEntry) 
     -> Result<Vec<AccountingEntry>, csv::Error> {
     // pass an entry_builder_function to read csv with or without categories
@@ -168,14 +168,14 @@ fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: u32) {
     println!("----------------");
     for expense_category in ALL_EXPENSE_CATEGORIES.iter() {        
         println!("{:?} expenses: {:?}", 
-                 expense_category, get_sum_category(&accountings, expense_category.to_string()));
+                 expense_category, get_sum_category(&accountings, expense_category));
     }
     println!("----------------");
     println!("Total expenses: {:?}", get_sum_all_amounts(&accountings));
     println!("");
 }
 
-fn get_label_without_number(label: &String) -> String {
+fn get_label_without_number(label: &str) -> String {
     let re = Regex::new(r"[0-9]").unwrap();
     return re.replace_all(label, "").to_string();
 }
