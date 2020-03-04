@@ -129,6 +129,16 @@ fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_gu
     println!("Saved file {:?}", file_name_guessed);
     Ok(())
 }
+
+fn is_date_transaction_in_month_year(date_transaction: chrono::NaiveDate, month: u32, year: i32) 
+    -> bool {
+    let date_second = chrono::NaiveDate::from_ymd(year, month, 2);
+    // the first day of the next month
+    let (year_next_month, month_next) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+    let date_first_next = chrono::NaiveDate::from_ymd(year_next_month, month_next, 1);
+
+    date_transaction >= date_second && date_transaction <= date_first_next
+}
     
 fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>, 
             entry_builder_function: &dyn Fn(&HashMap<String, String>) -> AccountingEntry) 
@@ -143,8 +153,7 @@ fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>,
         match month_year {
             None => accountings.push(accounting_entry),
             Some((month, year)) => {
-                if accounting_entry.date_transaction.month() == month 
-                        && accounting_entry.date_transaction.year() == year {
+                if is_date_transaction_in_month_year(accounting_entry.date_transaction, month, year) {
                     accountings.push(accounting_entry);
                 }
             },
