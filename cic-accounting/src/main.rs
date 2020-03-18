@@ -62,10 +62,7 @@ fn build_accounting_entry_from_raw_csv_record(
     -> AccountingEntry {
     // todo: there might be a way to avoid cloning in here...
     AccountingEntry { 
-        date_transaction: match chrono::NaiveDate::parse_from_str(&record["Date"].to_string(), "%m/%d/%Y") {
-            Err(why) => panic!("{:?}", why),
-            Ok(date_ok) => date_ok,
-        }, 
+        date_transaction: get_date_from_hashmap_record(record), 
         date_effect: record["Datedevaleur"].clone(),
         amount: match record["Montant"].parse::<f32>() {
             Err(why) => panic!("{:?}", why),
@@ -76,14 +73,18 @@ fn build_accounting_entry_from_raw_csv_record(
     }
 }
 
+fn get_date_from_hashmap_record(record: &HashMap<String, String>) -> chrono::NaiveDate {
+    match chrono::NaiveDate::parse_from_str(&record["Date"].to_string(), "%m/%d/%Y") {
+        Err(why) => panic!("Wrong date: {:?}", why),
+        Ok(date_ok) => date_ok,
+    }
+}
+
 fn build_accounting_entry_from_csv_record_with_categories(record: &HashMap<String, String>) 
     -> AccountingEntry {
     // todo: there might be a way to avoid cloning in here...
     AccountingEntry { 
-        date_transaction: match chrono::NaiveDate::parse_from_str(&record["Date"].to_string(), "%m/%d/%Y") {
-            Err(why) => panic!("{:?}", why),
-            Ok(date_ok) => date_ok,
-        }, 
+        date_transaction: get_date_from_hashmap_record(&record), 
         date_effect: record["Datedevaleur"].clone(),
         amount: match record["Montant"].parse::<f32>() {
             Err(why) => panic!("{:?}", why),
@@ -145,9 +146,9 @@ fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>,
     -> Result<Vec<AccountingEntry>, csv::Error> {
     // pass an entry_builder_function to read csv with or without categories
     // https://www.reddit.com/r/rust/comments/bwplfl/read_csv_columns/
-    let mut rdr = csv::Reader::from_path(csv_path)?;
+    let mut reader = csv::Reader::from_path(csv_path)?;
     let mut accountings: Vec<AccountingEntry> = Vec::new();
-    for result in rdr.deserialize() {
+    for result in reader.deserialize() {
         let record: HashMap<String, String> = result?;
         let accounting_entry = entry_builder_function(&record);
         match month_year {
@@ -160,6 +161,33 @@ fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>,
         }
     }
     return Ok(accountings)
+}
+
+fn read_balance_from_csv(csv_path: &String, month: u32, year: i32) 
+    -> Result<f32, csv::Error> {
+    let mut reader = csv::Reader::from_path(csv_path)?;
+    let mut balance: Option<f32> = None;
+    for result in reader.deserialize() {
+        let record: HashMap<String, String> = result?;
+        let date = get_date_from_hashmap_record(&record);
+        let date_first = chrono::NaiveDate::from_ymd(year, month, 1);
+        let record_balance = match record["Solde"].parse::<f32>() {
+            Ok(balance) => balance,
+            Err(why) => panic!("balance should be a number: {:?}", why),
+        };
+        if date == date_first {
+            balance = Some(record_balance)
+        }
+        else if date >= date_first {
+            match balance {
+                None => {
+                    balance = Some(record_balance)
+                },
+                Some(_) => {},
+            }
+        }
+    }
+    return Ok(balance.unwrap())
 }
 
 fn check_categories(accountings: &Vec<AccountingEntry>) {
@@ -310,6 +338,7 @@ fn main() -> Result<(), csv::Error> {
             Ok(year) => year,
             Err(why) => panic!("year should be a number: {:?}", why),
         };
+        println!("Balance: {:?}", read_balance_from_csv(&file_name, month, year));
         guess_categories(&file_name, month, year)?;
     }
     else if let Some(sub_matches) = matches.subcommand_matches("sum") {
@@ -373,6 +402,18 @@ mod tests {
     fn test_sum() {
         let accountings = get_test_accountings().unwrap();
         assert_eq!(get_sum_all_amounts(&accountings), -105.45);
+    }
+
+    #[test]
+    fn test_balance_with_first_day_of_month() {
+        let balance = read_balance_from_csv(&FILE_NAME_TEST.to_string(), MONTH_TEST, YEAR_TEST).unwrap();
+        assert_eq!(balance, 7737.00);
+    }
+    
+    #[test]
+    fn test_balance_without_first_day_of_month() {
+        let balance = read_balance_from_csv(&"raw_account_3.csv".to_string(), MONTH_TEST, YEAR_TEST).unwrap();
+        assert_eq!(balance, 7738.23);
     }
 
 }
