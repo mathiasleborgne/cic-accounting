@@ -103,7 +103,7 @@ fn get_sum_all_amounts(accountings: &Vec<AccountingEntry>) -> f32 {
     return sum_all_amounts
 }
 
-fn get_sum_category(accountings: &Vec<AccountingEntry>, category: String) -> f32 {
+fn get_sum_category(accountings: &Vec<AccountingEntry>, category: &str) -> f32 {
     // todo: not so clean
     let mut sum_category = 0.;
     for accounting_entry in accountings {
@@ -114,7 +114,7 @@ fn get_sum_category(accountings: &Vec<AccountingEntry>, category: String) -> f32
     return sum_category
 }
 
-fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_guessed: &String) 
+fn write_csv_guessed_categories(accountings: &Vec<AccountingEntry>, file_name_guessed: &str) 
     -> Result<(), Box<dyn Error>> {
     let mut wtr = Writer::from_path(file_name_guessed)?;
     wtr.write_record(&["Date", "Datedevaleur", "Montant", "Libelle", "Category"])?;
@@ -141,7 +141,7 @@ fn is_date_transaction_in_month_year(date_transaction: chrono::NaiveDate, month:
     date_transaction >= date_second && date_transaction <= date_first_next
 }
     
-fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>, 
+fn read_csv(csv_path: &str, month_year: Option<(u32, i32)>, 
             entry_builder_function: &dyn Fn(&HashMap<String, String>) -> AccountingEntry) 
     -> Result<Vec<AccountingEntry>, csv::Error> {
     // pass an entry_builder_function to read csv with or without categories
@@ -163,7 +163,7 @@ fn read_csv(csv_path: &String, month_year: Option<(u32, i32)>,
     return Ok(accountings)
 }
 
-fn read_balance_from_csv(csv_path: &String, month: u32, year: i32) 
+fn read_balance_from_csv(csv_path: &str, month: u32, year: i32) 
     -> Result<f32, csv::Error> {
     let mut reader = csv::Reader::from_path(csv_path)?;
     let mut balance: Option<f32> = None;
@@ -201,7 +201,7 @@ fn check_categories(accountings: &Vec<AccountingEntry>) {
 
 
 fn print_category(accountings: &Vec<AccountingEntry>, category: &str) {
-    let sum_category = get_sum_category(&accountings, category.to_string());
+    let sum_category = get_sum_category(&accountings, category);
     println!("- {:?}: {:?}", category, sum_category);
     for accounting_entry in accountings {
         if accounting_entry.category == category {
@@ -220,7 +220,7 @@ fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: Option<u
     println!("----------------");
     for expense_category in ALL_EXPENSE_CATEGORIES.iter() {        
         println!("{:?} expenses: {:?}", 
-                 expense_category, get_sum_category(&accountings, expense_category.to_string()));
+                 expense_category, get_sum_category(&accountings, expense_category));
     }
     println!("----------------");
     println!("Total balance: {:?}", get_sum_all_amounts(&accountings));
@@ -296,7 +296,7 @@ fn collect_args() -> clap::ArgMatches<'static> {
         .get_matches()
 }
 
-fn replace_first_line(file_name: &String)-> Result<(), io::Error> {
+fn replace_first_line(file_name: &str)-> Result<(), io::Error> {
     // https://stackoverflow.com/questions/27215396/how-to-replace-a-word-in-a-file-in-a-txt
     // https://stackoverflow.com/questions/27082848/rust-create-a-string-from-file-read-to-end
 
@@ -317,9 +317,9 @@ fn replace_first_line(file_name: &String)-> Result<(), io::Error> {
     Ok(())
 }
 
-fn guess_accounting_entries_from_csv(file_name: &String, current_month: u32, year: i32) 
+fn guess_accounting_entries_from_csv(file_name: &str, current_month: u32, year: i32) 
     -> Result<Vec<AccountingEntry>, csv::Error> {
-    replace_first_line(&file_name.to_string())?;
+    replace_first_line(&file_name)?;
     let known_labels_categories_map = get_known_labels_categories_map()?;
     let build_accounting_entry_from_raw_csv_record_with_cats = 
         |record: &HashMap<String, String>| 
@@ -328,7 +328,7 @@ fn guess_accounting_entries_from_csv(file_name: &String, current_month: u32, yea
                 &build_accounting_entry_from_raw_csv_record_with_cats)?)
 }
 
-fn guess_categories(file_name: &String, current_month: u32, year: i32) -> Result<(), csv::Error> {
+fn guess_categories(file_name: &str, current_month: u32, year: i32) -> Result<(), csv::Error> {
     let accountings = guess_accounting_entries_from_csv(&file_name, current_month, year)?;
     print_accountings(&accountings, Some(current_month));
     let file_name_guessed = "guessed_".to_owned() + &file_name;
