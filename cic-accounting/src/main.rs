@@ -199,6 +199,17 @@ fn check_categories(accountings: &Vec<AccountingEntry>) {
     }
 }
 
+
+fn print_category(accountings: &Vec<AccountingEntry>, category: &str) {
+    let sum_category = get_sum_category(&accountings, category.to_string());
+    println!("- {:?}: {:?}", category, sum_category);
+    for accounting_entry in accountings {
+        if accounting_entry.category == category {
+            println!("    * {:?}: {:?}", accounting_entry.amount, accounting_entry.label);
+        }
+    }
+}
+
 fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: Option<u32>) {
     // println!("{:#?}", accountings);
     let month = match current_month {
@@ -212,8 +223,12 @@ fn print_accountings(accountings: &Vec<AccountingEntry>, current_month: Option<u
                  expense_category, get_sum_category(&accountings, expense_category.to_string()));
     }
     println!("----------------");
-    println!("Total expenses: {:?}", get_sum_all_amounts(&accountings));
+    println!("Total balance: {:?}", get_sum_all_amounts(&accountings));
     println!("");
+    println!("Special categories:");
+    print_category(&accountings, "Divers");
+    print_category(&accountings, "DepensesSpe");
+    print_category(&accountings, "GainsSpe");
 }
 
 fn get_label_without_number(label: &String) -> String {
