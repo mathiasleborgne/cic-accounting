@@ -1,3 +1,4 @@
 target/*
 Cargo.lock
 modified_accounts/*
+!modified_accounts/guessed_raw_account_2.csv
