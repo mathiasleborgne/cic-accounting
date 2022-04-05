@@ -34,8 +34,11 @@ def process_values(accounting_object):
 	if accounting_object_mod["libelle"] is None:
 		accounting_object_mod["libelle"] = ""
 	else:
+		# remove \n
 		accounting_object_mod["libelle"] = accounting_object_mod["libelle"]\
-			.replace("\n", " ").replace("  ", " ").replace("  ", " ").strip()
+			.replace("\n", " ").strip()
+		# Substitute multiple whitespace with single whitespace
+		accounting_object_mod["libelle"] = ' '.join(accounting_object_mod["libelle"].split())
 
 	print(accounting_object_mod)
 	accounting_object_mod["date"] = accounting_object_mod["date"].strftime("%m/%d/%Y")
@@ -55,11 +58,18 @@ pprint(accounting_objects)
 with open(CSV_FILENAME, 'w', newline='') as csvfile:
     csv_writer = csv.writer(csvfile, delimiter=',',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    csv_writer.writerow([
+        "date_operation",
+        "date_debit_credit",
+        "debit_credit",
+        "libelle",
+        "balance",
+    ])
     for accounting_object in accounting_objects:
 	    csv_writer.writerow([
 	    	accounting_object["date"],
 	    	accounting_object["date"],
 	    	accounting_object["debit_credit"],
 	    	accounting_object["libelle"],
-	    	0 # the balance...
+	    	0, # the balance...
 	    ])
