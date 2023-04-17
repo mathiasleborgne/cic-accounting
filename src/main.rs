@@ -1,3 +1,8 @@
+// Source for CIC accounting
+// 2 main parts:
+//     - guess: parses a csv file and tries to guess the category of spending of each entry (based on previous categories inputs)
+//     - sum: after user manually fills the unguessed categories, the sums are calculated, and categories are saved for later
+
 extern crate csv;
 extern crate chrono;
 extern crate clap;
@@ -373,6 +378,7 @@ fn main() -> Result<(), csv::Error> {
 }
 
 
+// Automatic tests, mostly based on dummy accounting file "raw_account_2.csv"
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
